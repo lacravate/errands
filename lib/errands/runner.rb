@@ -121,7 +121,7 @@ module Errands
     end
 
     def thread_name
-      name = caller_locations(2, 1).first.base_label
+      name = caller_locations(2, 1).first.base_label.dup
       name << ".#{Time.now.to_f}" if name.end_with? 's'
       (our[:threads] ||= []) << name.to_sym
       name.to_sym
