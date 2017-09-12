@@ -27,7 +27,16 @@ module Errands
 
     attr_accessor :running_mode
 
-    def run(options = {})
+    def run(options = startup)
+      start options
+      our[:events] = []
+
+      loop do
+        errands *our[:events].shift if our[:events].any?
+      end
+    end
+
+    def start(options = startup)
       our.merge! options
       starter
     end
@@ -129,6 +138,10 @@ module Errands
 
     def log_error(e)
       puts e.message
+    end
+
+    def startup
+      {}
     end
 
     def work_done; end
