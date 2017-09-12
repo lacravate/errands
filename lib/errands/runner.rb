@@ -59,9 +59,6 @@ module Errands
         loop do
           if secure_check :worker, :alive?
             sleep 1
-          elsif our[:work_done]
-            stop :worker
-            work_done || break
           else
             secure_check :worker, :join
             worker
