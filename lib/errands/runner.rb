@@ -57,13 +57,13 @@ module Errands
     def starter
       running do
         loop do
-          if our[:worker] && our[:worker].respond_to?(:alive?) && our[:worker].alive?
+          if secure_check :worker, :alive?
             sleep 1
           elsif our[:work_done]
             stop :worker
             work_done || break
           else
-            our[:worker] && our[:worker].respond_to?(:join) && our[:worker].join
+            secure_check :worker, :join
             worker
           end
         end
@@ -139,6 +139,15 @@ module Errands
       name << ".#{Time.now.to_f}" if name.end_with? 's'
       (our[:threads] ||= []) << name.to_sym
       name.to_sym
+    end
+
+    def register_thread(name)
+      ((our[:threads] ||= []) << name).uniq!
+      name
+    end
+
+    def secure_check(name, meth)
+      our[name] && our[name].respond_to?(meth) && our[name].send(meth)
     end
 
     def log_error(e)
