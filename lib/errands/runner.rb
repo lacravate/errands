@@ -65,36 +65,50 @@ module Errands
           end
         end
 
-        stop :starter
+        errands :stop, :starter
       end
     end
 
     def worker
+      our[:work_done] = false
+
       running do
         loop do
           begin
-            (our[:work_done] = true) && break if breaking_loop?
+            (our[:work_done] = true) && break if work_done?
             process job
             sleep our[:frequency] if our[:frequency]
           rescue => e
             log_error e
           end
         end
+
+        our[:work_done] && work_done
+        errands :stop, :worker
       end
     end
 
-    def stop(threads = [:starter, :worker])
+    def stop(threads = nil)
+      threads ||= our[:threads]
       our_selection(threads) do |n, t|
         if Thread.current == t
-          Thread.new { stop n }
+          errands :stop, n
         else
           t.exit
           t.join
           wait_for n, :status, false
         end
-      end.tap {
-        our[:stopped] = true unless status.values.any? { |t| t.alive? }
-      }
+      end
+
+      our[:stopped] = !status.values.any? { |t| t.alive? }
+    end
+
+    def status
+      our_selection our[:threads]
+    end
+
+    def work_done?
+      false
     end
 
     def status
@@ -109,17 +123,22 @@ module Errands
       end
     end
 
-    def breaking_loop?
-      false
-    end
-
     private
 
     def our_selection(selection)
-      our.select do |k, v|
+      our.dup.select do |k, v|
         Array(selection).include?(k).tap { |bool|
           yield k, our[k] if bool && block_given?
         }
+      end
+    end
+
+    def errands(errand, *_)
+      name = thread_name(1).to_s << "_#{errand}"
+
+      running name.to_sym do
+        send errand, *_
+        our[:threads].delete my[:name]
       end
     end
 
@@ -127,14 +146,15 @@ module Errands
       if @running_mode
         send @running_mode, &block
       else
-        our[thread_name] = Thread.new &block
+        t = Thread.new &block
+        n = register_thread name || thread_name
+        his our[n] = t, :name, n
       end
     end
 
-    def thread_name
-      name = caller_locations(2, 1).first.base_label.dup
-      name << ".#{Time.now.to_f}" if name.end_with? 's'
-      (our[:threads] ||= []) << name.to_sym
+    def thread_name(caller_depth = 2)
+      name = caller_locations(caller_depth, 1).first.base_label.dup
+      name << "_" << Time.now.to_f.to_s.sub('.', '_') if name.end_with? 's'
       name.to_sym
     end
 
