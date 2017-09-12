@@ -45,6 +45,11 @@ module Errands
       Thread.current[:runner] ||= {}
     end
 
+    def his(t, k, v = nil)
+      t[:runner] ||= {}
+      v ? t[:runner][k] = v : t[:runner][k]
+    end
+
     def our
       Thread.main[:runner] ||= {}
     end
