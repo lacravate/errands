@@ -14,15 +14,15 @@ module Errands
 
     class ImplementationError < StandardError; end
 
-    def self.included(klass)
-      klass.extend ThreadAccessors
-    end
-
     %w|job process|.each do |m|
       define_method m do |*_|
         raise method(__method__).owner::ImplementationError,
           "#{__method__} has to be implemented in client class"
       end
+    end
+
+    def self.included(klass)
+      klass.extend ThreadAccessors
     end
 
     attr_accessor :running_mode
@@ -89,8 +89,7 @@ module Errands
     end
 
     def stop(threads = nil)
-      threads ||= our[:threads]
-      our_selection(threads) do |n, t|
+      our_selection(threads || our[:threads]) do |n, t|
         if Thread.current == t
           errands :stop, n
         else
@@ -107,20 +106,20 @@ module Errands
       our_selection our[:threads]
     end
 
-    def work_done?
-      false
-    end
-
     def status
       our_selection our[:threads]
     end
 
-    def wait_for(thread, meth = nil, result = true)
+    def wait_for(key, meth = nil, result = true)
       loop do
-        break if meth && our[thread].respond_to?(meth) ?
-          our[thread].send(meth) == result :
-          our[thread]
+        break if meth && our[key].respond_to?(meth) ?
+          our[key].send(meth) == result :
+          !!our[key] == result
       end
+    end
+
+    def work_done?
+      false
     end
 
     private
@@ -146,21 +145,19 @@ module Errands
       if @running_mode
         send @running_mode, &block
       else
-        t = Thread.new &block
-        n = register_thread name || thread_name
-        his our[n] = t, :name, n
+        register_thread name || thread_name, Thread.new(&block)
       end
     end
 
     def thread_name(caller_depth = 2)
-      name = caller_locations(caller_depth, 1).first.base_label.dup
-      name << "_" << Time.now.to_f.to_s.sub('.', '_') if name.end_with? 's'
-      name.to_sym
+      caller_locations(caller_depth, 1).first.base_label.dup.tap { |n|
+        n << "_" << Time.now.to_f.to_s.sub('.', '_') if n.end_with? 's'
+      }.to_sym
     end
 
-    def register_thread(name)
+    def register_thread(name, thread)
       ((our[:threads] ||= []) << name).uniq!
-      name
+      his our[name] = thread, :name, name
     end
 
     def secure_check(name, meth)
