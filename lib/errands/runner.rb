@@ -159,7 +159,7 @@ module Errands
       his our[name] = thread, :name, name
     end
 
-    def secure_check(name, meth)
+    def send_our(name, meth)
       our[name] && our[name].respond_to?(meth) && our[name].send(meth)
     end
 
