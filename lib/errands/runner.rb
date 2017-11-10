@@ -86,7 +86,6 @@ module Errands
         end
 
         our[:work_done] && work_done
-        errands :stop, :worker
       end
     end
 
@@ -102,10 +101,6 @@ module Errands
       end
 
       our[:stopped] = !status.values.any? { |t| t.alive? }
-    end
-
-    def status
-      our_selection our[:threads]
     end
 
     def status
@@ -143,11 +138,13 @@ module Errands
       end
     end
 
-    def running(name = nil, &block)
+    def running(n = nil, &block)
       if @running_mode
         send @running_mode, &block
       else
-        register_thread name || thread_name, Thread.new(&block)
+        name = n || thread_name
+        b = -> { block.call; stop name unless name =~ /_errand/ }
+        register_thread name, Thread.new(&b)
       end
     end
 
