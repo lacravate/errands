@@ -4,7 +4,7 @@ module Errands
 
     module ThreadAccessors
 
-      def thread_accessors(*accessors)
+      def thread_accessor(*accessors)
         accessors.each do |a|
           define_method a, -> { our[a] }
         end
