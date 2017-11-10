@@ -4,7 +4,7 @@ class NeedRunner
 
   include Errands::Runner
 
-  thread_accessors :bim, :bam, :pile
+  thread_accessor :bim, :bam, :pile
 
   def initialize(options)
     @future_running_mode = options[:running_mode]
@@ -74,7 +74,7 @@ describe NeedRunner do
   let(:limit) { nil }
   let(:exit_on_limit) { nil }
 
-  describe "thread_accessors" do
+  describe "thread_accessor" do
     before {
       needy.our[:bam] = :that_bam
       needy.our[:bim] = :that_bim
