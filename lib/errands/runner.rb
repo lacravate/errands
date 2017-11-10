@@ -130,7 +130,7 @@ module Errands
     end
 
     def errands(errand, *_)
-      name = thread_name(1).to_s << "_#{errand}"
+      name = thread_name(1).to_s << "_#{errand}_errand"
 
       running name.to_sym do
         send errand, *_
