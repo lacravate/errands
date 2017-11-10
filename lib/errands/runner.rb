@@ -55,18 +55,20 @@ module Errands
     end
 
     def starter
-      running do
+      running &starting(:starter, :worker)
+    end
+
+    def starting(starter, started, frequency = 1)
+      -> {
         loop do
-          if secure_check :worker, :alive?
-            sleep 1
+          if send_our started, :alive?
+            sleep frequency
           else
-            secure_check :worker, :join
-            worker
+            send_our started, :join
+            send started
           end
         end
-
-        errands :stop, :starter
-      end
+      }
     end
 
     def worker
