@@ -45,18 +45,41 @@ module Errands
 
   end
 
-    def run(options = startup)
-      start options
-      our[:events] = []
+  class Receptors < Hash
 
-      loop do
-        errands *our[:events].shift if our[:events].any?
+    class Receptor < Array
+
+      module Track
+
+        def track(v, r = nil)
+          v.send "instance_variable_#{r ? :set : :get}", *["@receptor_track", r].compact
+        end
+
       end
+
+      include ThreadAccessor::PrivateAccess
+      include Track
+
+      attr_reader :name
+
+      def initialize(name)
+        @name = name
+      end
+
+      def shift(*_)
+        my[:data] = super.tap { |value| my[:receptor_track] = track value }
+      end
+
+      def <<(value)
+        return if value.nil?
+        track value, my[:receptor_track]
+        super.tap { our[:threads][@name] && our[:threads][@name].run }
+      end
+
     end
 
-    def start(options = startup)
-      our.merge! options
-      starter
+    def default(key)
+      self[key] = Receptor.new key
     end
 
     def my
