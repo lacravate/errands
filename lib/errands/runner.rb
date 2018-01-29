@@ -217,11 +217,13 @@ module Errands
 
     private
 
-    def our_selection(selection)
-      our.dup.select do |k, v|
-        Array(selection).include?(k).tap { |bool|
-          yield k, our[k] if bool && block_given?
-        }
+    def frequency(name = nil)
+      our[:config] && our[:config][:frequencies] && our[:config][:frequencies][name || my[:name]]
+    end
+
+    def main_loop
+      rescued_loop do
+        (e = events.shift) ? errands(*e) : sleep(frequency(:main_loop) || 1)
       end
     end
 
