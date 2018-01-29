@@ -227,22 +227,39 @@ module Errands
       end
     end
 
-    def errands(errand, *_)
-      name = thread_name(1).to_s << "_#{errand}_errand"
+    def ready_receptor!(processing)
+      receptors[processing].tap { threads[processing] ||= spring processing }
+    end
 
-      running name.to_sym do
-        send errand, *_
-        our[:threads].delete my[:name]
+    def spring(processing)
+      running processing, loop: true, deletable: true do
+        data = receptors[my[:name]].shift || Thread.stop || receptors[my[:name]].shift
+        data && send(processing, data).tap do |r|
+          if my[:receptor_track] && my[:receptor_track][:receptor].name != my[:name]
+            my[:receptor_track][:receptor] << my[:receptor_track].merge(result: r).reject { |k, v| k == :receptor }
+          end
+        end
       end
     end
 
-    def running(n = nil, &block)
+    def errands(errand, *_)
+      running("#{thread_name(1)}_#{errand}".to_sym, deletable: true) { send errand, *_ }
+    end
+
+    def running(name = thread_name, options = {}, &block)
       if @running_mode
         send @running_mode, &block
       else
-        name = n || thread_name
-        b = -> { block.call; stop name unless name =~ /_errand/ }
-        register_thread name, Thread.new(&b)
+        threads[name] = Thread.new {
+          my[:named] = my && !!my[:name] || Thread.stop || true
+          r = my[:result] = my[:loop] ? rescued_loop(&block) : block.call
+          ["stop_#{name}", "stop_#{his(our[name])[:type]}"].each { |s| checked_send s }
+          my[:deletable] && threads.delete(name)
+          r
+        }.tap { |t|
+          his_store! t, { name: name, stop: false, type: :any, receptor_track: my && my.delete(:receptor_track) }.merge(options)
+          t.run unless his(t)[:named]
+        }
       end
     end
 
