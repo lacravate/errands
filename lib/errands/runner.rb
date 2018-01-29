@@ -35,11 +35,15 @@ module Errands
 
     end
 
-    def self.included(klass)
-      klass.extend ThreadAccessors
+  end
+
+  module Started
+
+    def started_workers(*_)
+      _.any? ? (@started_workers ||= []).concat(_.flatten) : @started_workers ||= [:worker]
     end
 
-    attr_accessor :running_mode
+  end
 
     def run(options = startup)
       start options
