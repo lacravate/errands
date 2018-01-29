@@ -202,7 +202,7 @@ module Errands
       time = Time.now.to_f
       loop {
         break if @errands_wait_timeout && Time.now.to_f - time > @errands_wait_timeout
-        break if meth && our[key].respond_to?(meth) ?
+        break if meth && our[key].respond_to?(meth, true) ?
           ((our[key].send(meth) == result) rescue nil) :
           !!our[key] == result }
     end
@@ -287,7 +287,7 @@ module Errands
     end
 
     def checked_send(meth, recipient = self, *_)
-      recipient.respond_to?(meth) && (recipient.send(meth, *_) rescue nil)
+      recipient.respond_to?(meth, true) && (recipient.send(meth, *_) rescue nil)
     end
 
     def working_jargon(started, processing = nil, data_acquisition = nil)
