@@ -1,24 +1,38 @@
 module Errands
 
-  module Runner
+  module ThreadAccessor
 
-    module ThreadAccessors
-
-      def thread_accessor(*accessors)
-        accessors.each do |a|
-          define_method a, -> { our[a] }
-        end
+    def thread_accessor(*accessors)
+      accessors.each do |a|
+        define_method a, -> { our[a] }
+        define_method "#{a}=", ->(v) { our[a] = v }
       end
-
     end
 
-    class ImplementationError < StandardError; end
+    module PrivateAccess
 
-    %w|job process|.each do |m|
-      define_method m do |*_|
-        raise method(__method__).owner::ImplementationError,
-          "#{__method__} has to be implemented in client class"
+      private
+
+      def our_store!(h = nil)
+        Thread.main[:errands] = h || {}
       end
+
+      def his_store!(thread, h = nil)
+        thread[:errands] = h || {}
+      end
+
+      def my
+        Thread.current[:errands]
+      end
+
+      def his(thread)
+        thread[:errands]
+      end
+
+      def our
+        Thread.main[:errands]
+      end
+
     end
 
     def self.included(klass)
