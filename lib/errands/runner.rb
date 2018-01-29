@@ -130,35 +130,68 @@ module Errands
   module LousyCompat
 
     def worker
-      our[:work_done] = false
+      working :worker, :process, :job
+    end
 
-      running do
-        loop do
-          begin
-            (our[:work_done] = true) && break if work_done?
-            process job
-            sleep our[:frequency] if our[:frequency]
-          rescue => e
-            log_error e
-          end
-        end
+  end
 
-        our[:work_done] && work_done
+  module Runner
+
+    def self.included(klass)
+      klass.extend(ThreadAccessor).extend(Started)
+      klass.include ThreadAccessor::PrivateAccess
+      klass.thread_accessor :events, :receptors, :threads
+    end
+
+    attr_accessor :running_mode
+
+    def start(options = startup)
+      our_store! options.merge(threads: Runners.new, receptors: Receptors.new)
+      starter
+    end
+
+    def run(options = startup)
+      start options unless started?
+      our.merge! events: receptors[:events]
+      main_loop
+    end
+
+    def starter
+      starting self.class.started_workers
+    end
+
+    def starting(started)
+      running thread_name, loop: true, started: started, type: :starter do
+        Array(my[:started]).uniq.each { |s| threads[s] ||= send *(respond_to?(s, true) ? [s] : [:working, s]) }
+        sleep frequency || 1
       end
     end
 
-    def stop(threads = nil)
-      our_selection(threads || our[:threads]) do |n, t|
-        if Thread.current == t
-          errands :stop, n
-        else
-          t.exit
-          t.join
-          wait_for n, :status, false
+    def working(*_)
+      work_done, processing, data_acquisition = working_jargon *_
+      our[work_done] = false
+
+      running _.first, loop: true, type: :data_acquisition do
+        unless my[:stop] ||= our[work_done] = checked_send("#{work_done}?")
+          r = ready_receptor! processing
+          if d = send(data_acquisition)
+            r << d
+          else
+            sleep frequency.to_i
+          end
         end
       end
+    end
 
-      our[:stopped] = !status.values.any? { |t| t.alive? }
+    def stop(*_)
+      [false, true].each do |all|
+        list = threads.key_sliced(_.any? ? _ : stopped_threads)
+        list.alive.each { |n, t| his(t)[:stop] = true }
+        list.stopping_order(all).alive.each { |n, t| exiting(n, !all || t.stop?) }
+      end
+
+      stopped?
+      threads.key_sliced(_.any? ? _ : stopped_threads).alive.empty?
     end
 
     def status
