@@ -82,35 +82,52 @@ module Errands
       self[key] = Receptor.new key
     end
 
-    def my
-      Thread.current[:runner] ||= {}
+  end
+
+  class Runners < Hash
+
+    include ThreadAccessor::PrivateAccess
+
+    def [](k)
+      v = super
+      v if v && v.alive?
     end
 
-    def his(t, k, v = nil)
-      t[:runner] ||= {}
-      v ? t[:runner][k] = v : t[:runner][k]
+    def []=(k, v)
+      our[k] = super if v.is_a? Thread
     end
 
-    def our
-      Thread.main[:runner] ||= {}
+    def delete(k)
+      our.delete k
+      super
     end
 
-    def starter
-      running &starting(:starter, :worker)
+    def stopping_order(all = false)
+      scope(:type, :starter).merge(scope(:type, :data_acquisition)).merge all ? self : {}
     end
 
-    def starting(starter, started, frequency = 1)
-      -> {
-        loop do
-          if send_our started, :alive?
-            sleep frequency
-          else
-            send_our started, :join
-            send started
-          end
-        end
-      }
+    def key_sliced(*list)
+      select_keys = keys & list.flatten
+      typecast select { |k, v| select_keys.include? k }
     end
+
+    def alive
+      typecast select { |k, v| self[k] }
+    end
+
+    def scope(s, value = true)
+      typecast select { |k, v| his(v)[s] == value }
+    end
+
+    private
+
+    def typecast(h)
+      self.class.new.merge! h
+    end
+
+  end
+
+  module LousyCompat
 
     def worker
       our[:work_done] = false
