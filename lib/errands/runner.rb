@@ -263,15 +263,27 @@ module Errands
       end
     end
 
+    def exiting(name, force = true)
+      force && Thread.current == our[name] ? errands(:exiting, name) : our[name] && (force || our[name].stop?) && our[name].exit
+      wait_for name, :alive?, false
+    end
+
+    def stopped_threads
+      our[:stopped_threads] || threads.keys.reject { |k| k.to_s =~ /^errands_.+_stop$/}
+    end
+
     def thread_name(caller_depth = 2)
       caller_locations(caller_depth, 1).first.base_label.dup.tap { |n|
         n << "_" << Time.now.to_f.to_s.sub('.', '_') if n.end_with? 's'
       }.to_sym
     end
 
-    def register_thread(name, thread)
-      ((our[:threads] ||= []) << name).uniq!
-      his our[name] = thread, :name, name
+    def rescued_loop
+      loop { our["#{my[:name]}_iteration".to_sym] = begin
+        my[:stop] ? break : yield; Time.now
+      rescue => e
+        log_error e, my[:data], my
+      end }
     end
 
     def send_our(name, meth)
