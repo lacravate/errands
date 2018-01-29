@@ -286,19 +286,23 @@ module Errands
       end }
     end
 
-    def send_our(name, meth)
-      our[name] && our[name].respond_to?(meth) && our[name].send(meth)
+    def checked_send(meth, recipient = self, *_)
+      recipient.respond_to?(meth) && (recipient.send(meth, *_) rescue nil)
     end
 
-    def log_error(e)
-      puts e.message
+    def working_jargon(started, processing = nil, data_acquisition = nil)
+      [ "#{started}_done".to_sym,
+        processing || "#{started}_process".to_sym,
+        data_acquisition || "#{started}_data_acquisition".to_sym ]
+    end
+
+    def log_error(e, data, *_)
+      puts(e) || puts(e.message) || puts(data) || puts(e.backtrace) || puts(_) if our[:verbose]
     end
 
     def startup
-      {}
+      @startup ||= {}
     end
-
-    def work_done; end
 
   end
 
