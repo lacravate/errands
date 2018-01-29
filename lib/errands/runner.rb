@@ -195,19 +195,24 @@ module Errands
     end
 
     def status
-      our_selection our[:threads]
+      {}.tap { |s| threads.each { |name, t| s[name] = t.status } }
     end
 
     def wait_for(key, meth = nil, result = true)
-      loop do
+      time = Time.now.to_f
+      loop {
+        break if @errands_wait_timeout && Time.now.to_f - time > @errands_wait_timeout
         break if meth && our[key].respond_to?(meth) ?
-          our[key].send(meth) == result :
-          !!our[key] == result
-      end
+          ((our[key].send(meth) == result) rescue nil) :
+          !!our[key] == result }
     end
 
-    def work_done?
-      false
+    def stopped?
+      our[:stopped] = threads.key_sliced(stopped_threads).alive.empty?
+    end
+
+    def started?
+      !!our && !!threads && our[:started] = !stopped?
     end
 
     private
