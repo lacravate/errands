@@ -52,7 +52,9 @@ module Errands
       module Track
 
         def track(v, r = nil)
-          v.send "instance_variable_#{r ? :set : :get}", *["@receptor_track", r].compact
+          v.__send__ "instance_variable_#{r ? :set : :get}", *["@receptor_track", r].compact
+        rescue => e
+          log_error e, v, my.merge(error: :tracking_error)
         end
 
       end
