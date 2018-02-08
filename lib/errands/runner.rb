@@ -39,6 +39,10 @@ module Errands
 
   module Started
 
+    def self.run(*_)
+      new(*_).run
+    end
+
     def started_workers(*_)
       _.any? ? (@started_workers ||= []).concat(_.flatten) : @started_workers ||= [:worker]
     end
