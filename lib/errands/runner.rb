@@ -288,9 +288,9 @@ module Errands
         send @running_mode, &block
       else
         threads[name] = Thread.new {
-          my[:named] = my && !!my[:name] || Thread.stop || true
+          (my && my[:name] && (my[:named] = true)) || Thread.stop || (my[:named] = true)
           r = my[:result] = my[:loop] ? rescued_loop(&block) : block.call
-          ["stop_#{name}", "stop_#{his(our[name])[:type]}"].each { |s| checked_send s }
+          ["stop_#{name}", our[name] && "stop_#{his(our[name])[:type]}"].compact.each { |s| checked_send s }
           my[:deletable] && threads.delete(name)
           r
         }.tap { |t|
