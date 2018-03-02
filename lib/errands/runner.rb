@@ -99,7 +99,7 @@ module Errands
       end
 
       def shift(*_)
-        my[:data] = super.tap { |value| my[:receptor_track] = track value }
+        my[:data] = super.tap { |value| my.merge! receptor_track: track(value), latency: empty? }
       end
 
       def <<(value)
@@ -210,11 +210,7 @@ module Errands
       running _.first, loop: true, type: :data_acquisition do
         unless my[:stop] ||= our[work_done] = checked_send("#{work_done}?")
           r = ready_receptor! processing
-          if d = send(data_acquisition)
-            r << d
-          else
-            sleep frequency.to_i
-          end
+          ((r << send(data_acquisition)) && !my[:latency]) || sleep(frequency.to_i)
         end
       end
     end
