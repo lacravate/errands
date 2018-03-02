@@ -188,8 +188,12 @@ module Errands
       main_loop
     end
 
-    def starter
-      starting self.class.started_workers
+    def starter(*_)
+      if our[:starter]
+        (his(our[:starter])[:started] ||= []).concat _.flatten
+      else
+        starting self.class.started_workers
+      end
     end
 
     def starting(started)
