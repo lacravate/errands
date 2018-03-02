@@ -215,6 +215,11 @@ module Errands
       end
     end
 
+    def exit_on_stop
+      stop
+      exit
+    end
+
     def stop(*_)
       [false, true].each do |all|
         list = threads.key_sliced(_.any? ? _ : stopped_threads)
