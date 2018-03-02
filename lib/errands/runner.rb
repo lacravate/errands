@@ -337,8 +337,20 @@ module Errands
       puts(e) || puts(e.message) || puts(data) || puts(e.backtrace) || puts(_) if our[:verbose]
     end
 
-    def startup
-      @startup ||= {}
+    def startups
+      self.class.startups
+        .dup
+        .tap { |s| s << :startup if respond_to?(:startup, true) }
+        .uniq
+        .inject({}) { |s, m| extended_merge(s, __send__(m)) }
+    end
+
+    def extended_merge(from, to)
+      from.tap do |f|
+        to.keys.each do |k|
+          f[k] = f[k].is_a?(Hash) && to[k].is_a?(Hash) ? extended_merge(f[k], to[k]) : to[k]
+        end
+      end
     end
 
   end
