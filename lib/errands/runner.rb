@@ -39,9 +39,25 @@ module Errands
 
   module Started
 
-    def self.run(*_)
-      new(*_).run
+    def start(*_)
+      new(*_).start
     end
+
+    def run(*_)
+      e = new(*_)
+
+      if __callee__ == :daemon
+        Process.daemon
+        e.run
+      elsif __callee__ == :threaded_run
+        e.send(:running, :main_loop, type: :data_acquisition) { e.run }
+      else
+        e.run
+      end
+    end
+
+    alias_method :daemon, :run
+    alias_method :threaded_run, :run
 
     def started_workers(*_)
       _.any? ? (@started_workers ||= []).concat(_.flatten) : @started_workers ||= [:worker]
