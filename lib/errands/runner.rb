@@ -60,7 +60,17 @@ module Errands
     alias_method :threaded_run, :run
 
     def started_workers(*_)
-      _.any? ? (@started_workers ||= []).concat(_.flatten) : @started_workers ||= [:worker]
+      (@started_workers ||= [:worker]).concat _.flatten
+    end
+
+    def startups
+      @startups ||= []
+    end
+
+    private
+
+    def default_workers(*_)
+      started_workers(*_).tap { |s| s.delete :worker }
     end
 
   end
@@ -167,12 +177,12 @@ module Errands
 
     attr_accessor :running_mode
 
-    def start(options = startup)
+    def start(options = startups)
       our_store! options.merge(threads: Runners.new, receptors: Receptors.new)
       starter
     end
 
-    def run(options = startup)
+    def run(options = startups)
       start options unless started?
       our.merge! events: receptors[:events]
       main_loop
