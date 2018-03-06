@@ -60,7 +60,7 @@ module Errands
     alias_method :threaded_run, :run
 
     def started_workers(*_)
-      (@started_workers ||= [:worker]).concat _.flatten
+      (@started_workers ||= [:worker]).concat _.map(&:to_sym).flatten
     end
 
     def startups
