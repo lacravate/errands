@@ -190,7 +190,7 @@ module Errands
 
     def starter(*_)
       if our[:starter]
-        (his(our[:starter])[:started] ||= []).concat _.flatten
+        self.class.started_workers *_
       else
         starting self.class.started_workers
       end
