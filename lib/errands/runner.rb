@@ -180,7 +180,6 @@ module Errands
     def start(options = startups)
       our_store! options.merge(threads: Runners.new, receptors: Receptors.new)
       puts ["Starting #{self.class} with :", our[:config], "workers : #{self.class.started_workers}", "\n"].join("\n") unless our[:quit]
-      puts "name : #{MessageDesk::Chef.name_from_process}"
       starter
     end
 
