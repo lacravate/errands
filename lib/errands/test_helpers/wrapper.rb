@@ -4,6 +4,22 @@ module Errands
 
   module TestHelpers
 
+    module OurStore
+
+      def initialize(*_)
+        s = if _.size == 1 && _.first.is_a?(Hash)
+          _.first.delete(:startup).tap { _.pop if _.first.empty? }
+        elsif _.last.is_a?(Hash)
+          _.pop[:startup]
+        end
+
+        our_store! (s.is_a?(Hash) ? s : send(s)) || {}
+
+        super
+      end
+
+    end
+
     module ResetStartedWorkers
 
       def reset_started_workers
@@ -42,8 +58,9 @@ module Errands
         @instance = new
       end
 
-      def self.help(helped, &block)
+      def self.help(helped, options = {}, &block)
         helper
+        #~ @instance.theirs_reset! unless options[:reset] == false
         @instance.help helped, &block
       end
 
@@ -59,7 +76,7 @@ module Errands
       def help(helped)
         (our[:helped] = helped).tap do |i|
           i.instance_variable_set '@errands_wait_timeout', 10
-          i.start
+          i.start unless i.started?
           yield i if block_given?
         end
       end
@@ -77,17 +94,25 @@ module Errands
       end
 
       def self.after
-        @instance.after if @instance && @instance.helped
+        threads_cleanup
+
+        if @instance
+          @instance.stop_helped if @instance.helped
+          @instance.theirs_reset!
+        end
+
         @instance = nil
       end
 
-      def after
+      def self.threads_cleanup
         while (t = Thread.list.select { |t| t[:errands] } - [Thread.main]).any?
           t.each &:exit
         end
+      end
+
+      def stop_helped
         helped.stop
         helped.wait_for :stopped
-        theirs_reset!
       end
 
     end
