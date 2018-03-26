@@ -42,24 +42,20 @@ module Errands
   module Started
 
     def start(*_)
-      new(*_).start
+      new(*_).tap &:start
     end
 
     def run(*_)
-      e = new(*_)
-
-      if __callee__ == :daemon
-        Process.daemon
-        e.run
-      elsif __callee__ == :threaded_run
-        e.send(:running, :main_loop, type: :data_acquisition) { e.run }
-      else
+      new(*_).tap do |e|
+        Process.daemon if (callee = __callee__) == :daemon
+        startups << define_method(:startups_alternate_run) { { callee => true } } if __callee__ != __method__
         e.run
       end
     end
 
     alias_method :daemon, :run
     alias_method :threaded_run, :run
+    alias_method :noop_run, :run
 
     def started_workers(*_)
       (@started_workers ||= [:worker]).concat _.map(&:to_sym).flatten
