@@ -178,7 +178,6 @@ module Errands
 
     def start(options = startups)
       our_store! options.merge(threads: Runners.new, receptors: Receptors.new)
-      puts ["Starting #{self.class} with :", our[:config], "workers : #{self.class.started_workers}", "\n"].join("\n") unless our[:quit]
       starter
     end
 
@@ -197,6 +196,8 @@ module Errands
     end
 
     def starting(started)
+      puts ["Starting #{self.class} with :", our[:config], "workers : #{started}", "\n"].join("\n") unless our[:quiet]
+
       running thread_name, loop: true, started: started, type: :starter do
         Array(my[:started]).uniq.each { |s| threads[s] ||= send *(respond_to?(s, true) ? [s] : [:working, s]) }
         sleep frequency || 1
