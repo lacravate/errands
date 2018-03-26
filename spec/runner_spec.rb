@@ -11,15 +11,18 @@ class NeedRunner
     @future_running_mode = options[:running_mode]
     @limit = options[:limit]
     @exit_on_limit = options[:exit_on_limit]
+    @faulty_other_job = options[:faulty_other_job]
   end
 
   def startup
-    super.merge bim: :bim_value,
+    { bim: :bim_value,
       bam: :bam_value,
       pile: [],
       limit: @limit,
       exit_on_limit: @exit_on_limit,
-      frequency: 1
+      config: { frequencies: { worker: 1 } },
+      faulty_other_job: @faulty_other_job
+      }
   end
 
   def start(*_)
@@ -46,7 +49,7 @@ class NeedRunner
       rescued_loop do
         i += 1
         1 / (i - 1)
-        s = i.to_s
+        s = our[:faulty_other_job] && i == 2 ? i : i.to_s
         my[:receptor_track] = { receptor: our[:other_job_pile] }
         our[:dir] << s
         sleep 0.3
@@ -84,14 +87,13 @@ class NeedRunner
 
   def log_error(e, data, ctx)
     super || receptors[:errors] << e.message
-    # puts e.backtrace
   end
 
 end
 
 class OtherRunner < NeedRunner
 
-  started_workers << :other_job
+  started_workers :other_job
 
   def stopped_threads
     super
@@ -101,10 +103,30 @@ end
 
 class EssentialRunner < NeedRunner
 
-  started_workers << :other_job
+  started_workers :other_job
 
   def stopped_threads
     super - [:other_job]
+  end
+
+end
+
+class OtherExclusiveRunner < OtherRunner
+
+  default_workers :other_job
+
+  startups << :additional_startup
+
+  def additional_startup
+    { config: { frequencies: { worker: 2, other_job: 2 } }, additional_startup: true }
+  end
+
+  def stopped_threads
+    super
+  end
+
+  def exit
+    our[:exit] = true
   end
 
 end
@@ -150,21 +172,67 @@ describe NeedRunner do
       needy.wait_for :worker_iteration
     }
 
-    it "should have launched basic function threads" do
-      expect(needy.status.values.size).to eq 3
-      expect(needy.status[:starter]).not_to be_falsy
-      expect(needy.status[:worker]).not_to be_falsy
-      expect(needy.status[:process]).not_to be_falsy
+    context "instance method" do
+      it "should have launched basic function threads" do
+        expect(needy.status.values.size).to eq 3
+        expect(needy.status[:starter]).not_to be_falsy
+        expect(needy.status[:worker]).not_to be_falsy
+        expect(needy.status[:process]).not_to be_falsy
+      end
+
+      it "should have set accessors values" do
+        expect(needy.bim).to eq :bim_value
+        expect(needy.bam).to eq :bam_value
+        expect(needy.pile).to be_a_kind_of Array
+      end
     end
 
-    it "should have set accessors values" do
-      expect(needy.bim).to eq :bim_value
-      expect(needy.bam).to eq :bam_value
-      expect(needy.pile).to be_a_kind_of Array
+    context "class method start" do
+      let(:needy) { NeedRunner.start needy_params }
+
+      it "should have launched basic function threads" do
+        expect(needy.status.values.size).to eq 3
+        expect(needy.status[:starter]).not_to be_falsy
+        expect(needy.status[:worker]).not_to be_falsy
+        expect(needy.status[:process]).not_to be_falsy
+      end
+
+      it "should have set accessors values" do
+        expect(needy.bim).to eq :bim_value
+        expect(needy.bam).to eq :bam_value
+        expect(needy.pile).to be_a_kind_of Array
+      end
+    end
+
+    context "OtherExclusiveRunner" do
+      let(:needy) { OtherExclusiveRunner.new needy_params }
+
+      describe "startup" do
+        it "should have gotten additional configuration" do
+          expect(needy.send(:our)[:config]).to eq({:frequencies=>{:worker=>1, :other_job=>2}})
+          expect(needy.send(:our)[:additional_startup]).to be_truthy
+        end
+      end
+
+      describe "default_workers" do
+        it "should not include the worker 'worker' in the started workers" do
+          expect(needy.class.started_workers).to eq [:other_job]
+        end
+
+        context "subsequent starter worker" do
+          before {
+            needy.starter :worker
+          }
+
+          it "should now include the worker 'worker' in the started workers" do
+            expect(needy.class.started_workers).to eq [:other_job, :worker]
+          end
+        end
+      end
     end
   end
 
-  describe "starter job" do
+  describe "starter routine" do
     before {
       needy.previous_worker = needy.threads[:worker]
       needy.stop :worker
@@ -194,7 +262,7 @@ describe NeedRunner do
       end
     end
 
-    context "no exit" do
+    context "no done worker" do
       before {
         needy.previous_worker = needy.threads[:worker]
         needy.wait_for :worker, :alive?, false
@@ -208,14 +276,30 @@ describe NeedRunner do
     end
 
     describe 'receptor_track' do
-      let(:needy) { OtherRunner.new needy_params }
+      let(:faulty) { {} }
+      let(:needy) { OtherRunner.new needy_params.merge(faulty) }
 
-      before {
-        needy.wait_for :other_job_pile, :size, 3
-      }
+      context "correct" do
+        before {
+          needy.wait_for :other_job_pile, :size, 3
+        }
 
-      it "should have stashed products of other_job in a specific pile" do
-        expect(needy.receptors[:other_job_pile].map {|e|e[:result]}).to eq %w|2 3 4|
+        it "should have stashed products of other_job in a specific pile" do
+          expect(needy.receptors[:other_job_pile].map {|e|e[:result]}).to eq %w|2 3 4|
+        end
+      end
+
+      context "faulty" do
+        let(:faulty) { { faulty_other_job: true } }
+
+        before {
+          needy.wait_for :other_job_pile, :size, 3
+        }
+
+        it "should log an error on tracking" do
+          expect(needy.receptors[:errors]).to eq ["divided by 0", "can't modify frozen Fixnum"]
+        end
+
       end
     end
 
@@ -310,31 +394,32 @@ describe NeedRunner do
     end
   end
 
-  describe 'run' do
+  describe 'start && run' do
     let(:start_needy) { false }
 
     before {
       Errands::TestHelpers::Wrapper.helper.helped needy
     }
 
-    context "start && run" do
+    context "start" do
       before {
-        Thread.new { needy.start; needy.run }
+        needy.start
         sleep 0.3 while !needy.started?
         needy.wait_for :worker
         needy.wait_for :worker_iteration
       }
 
       it "should be properly run" do
-        expect([needy.threads, needy.events, needy.receptors].all?).to be_truthy
+        expect([needy.threads, needy.receptors].all?).to be_truthy
+        expect(needy.events).to be_falsy
         expect(needy.started?).to be_truthy
       end
     end
 
     context "run" do
+      let(:needy) { NeedRunner.threaded_run needy_params }
+
       before {
-        t = Thread.new { needy.run }
-        t[:errands] ||= {}
         sleep 0.3 while !needy.started?
         needy.wait_for :worker
         needy.wait_for :worker_iteration
@@ -356,9 +441,18 @@ describe NeedRunner do
         end
       end
     end
+  end
 
-    describe "track" do
+  describe "exit_on_stop" do
+    let(:needy) { OtherExclusiveRunner.new needy_params }
 
+    before {
+      needy.exit_on_stop
+    }
+
+    it "it should have called stop and exit" do
+      expect(needy.stopped?).to be_truthy
+      expect(needy.send(:our)[:exit]).to be_truthy
     end
   end
 
