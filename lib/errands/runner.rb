@@ -7,6 +7,8 @@ module Errands
         define_method a, -> { our[a] }
         define_method "#{a}=", ->(v) { our[a] = v }
       end
+
+      define_method(:err) { |h = {}| his_store! Thread.current, h }
     end
 
     module PrivateAccess
