@@ -184,13 +184,13 @@ module Errands
     def run(options = startups)
       start options unless started?
       our.merge! events: receptors[:events]
-      main_loop
+      our[:threaded_run] || our[:noop_run] ? running { main_loop } : main_loop
     end
 
     def starter(*_)
       if our[:starter]
         self.class.started_workers *_
-      else
+      elsif !our[:noop_run]
         starting self.class.started_workers
       end
     end
