@@ -13,11 +13,11 @@ module Errands
       end
     end
 
-    def err(h = {})
-      his_store! Thread.current, h
-    end
-
     module PrivateAccess
+
+      def err(h = {})
+        his_store! Thread.current, h
+      end
 
       private
 
