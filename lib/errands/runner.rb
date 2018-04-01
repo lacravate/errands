@@ -2,13 +2,19 @@ module Errands
 
   module ThreadAccessor
 
+    def self.extended(klass)
+      klass.include PrivateAccess
+    end
+
     def thread_accessor(*accessors)
       accessors.each do |a|
         define_method a, -> { our[a] }
         define_method "#{a}=", ->(v) { our[a] = v }
       end
+    end
 
-      define_method(:err) { |h = {}| his_store! Thread.current, h }
+    def err(h = {})
+      his_store! Thread.current, h
     end
 
     module PrivateAccess
@@ -170,7 +176,6 @@ module Errands
 
     def self.included(klass)
       klass.extend(ThreadAccessor).extend(Started)
-      klass.include ThreadAccessor::PrivateAccess
       klass.thread_accessor :events, :receptors, :threads
     end
 
