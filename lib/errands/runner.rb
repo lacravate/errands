@@ -300,7 +300,7 @@ module Errands
           my[:deletable] && threads.delete(name)
           r
         }.tap { |t|
-          his_store! t, { name: name, stop: false, type: :any, receptor_track: my && my.delete(:receptor_track) }.merge(options)
+          his_store! t, { name: name, time: Time.now.to_f, stop: false, type: :any, receptor_track: my && my.delete(:receptor_track) }.merge(options)
           t.run unless his(t)[:named]
         }
       end
