@@ -270,6 +270,8 @@ module Errands
       rescued_loop do
         (e = events.shift) ? errands(*e) : sleep(frequency(:main_loop) || 1)
       end
+
+      log_activity Time.now, "Exiting main loop"
     end
 
     def ready_receptor!(processing)
