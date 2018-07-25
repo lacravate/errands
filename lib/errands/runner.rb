@@ -299,7 +299,7 @@ module Errands
       else
         threads[name] = Thread.new {
           (my && my[:name] && (my[:named] = true)) || Thread.stop || (my[:named] = true)
-          r = my[:result] = my[:loop] ? rescued_loop(&block) : block.call
+          r = my[:result] = my[:loop] ? rescued_loop(&block) : rescued_execution(&block)
           ["stop_#{name}", our[name] && "stop_#{his(our[name])[:type]}"].compact.each { |s| checked_send s }
           my[:deletable] && threads.delete(name)
           r
@@ -325,12 +325,23 @@ module Errands
       }.to_sym
     end
 
-    def rescued_loop
-      loop { our["#{my[:name]}_iteration".to_sym] = begin
-        my[:stop] ? break : yield; Time.now
+    def rescued_execution
+      our["#{my[:name]}_iteration".to_sym] = begin
+        yield; Time.now
       rescue => e
         log_error e, my[:data], my
-      end }
+      rescue Exception => e
+        #~ puts e
+        log_error e, my[:data], my
+        raise e
+      end
+    end
+
+    def rescued_loop(&block)
+      loop do
+        break if my[:stop]
+        rescued_execution &block
+      end
     end
 
     def checked_send(meth, recipient = self, *_)
