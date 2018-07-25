@@ -251,7 +251,9 @@ module Errands
     end
 
     def stopped?
-      our[:stopped] = threads.key_sliced(stopped_threads).alive.empty?
+      our[:stopped] = threads.key_sliced(stopped_threads).alive.empty?.tap { |bool|
+        log_activity Time.now, "All activities stopped" if bool
+      }
     end
 
     def started?
