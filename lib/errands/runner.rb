@@ -358,6 +358,12 @@ module Errands
       puts(e) || puts(e.message) || puts(data) || puts(e.backtrace) || puts(_) if our[:verbose]
     end
 
+    def log_activity(*_)
+      message = _.map(&:to_s).join(" ")
+      # message = activity if message.empty?
+      puts message
+    end
+
     def startups
       self.class.startups
         .dup
