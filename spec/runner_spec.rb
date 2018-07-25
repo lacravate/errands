@@ -57,6 +57,18 @@ class NeedRunner
     end
   end
 
+  def other_dumb_job(e = :dumb)
+    errands e
+  end
+
+  def dumb
+    1 / 0
+  end
+
+  def crash
+    load "doumac"
+  end
+
   def different_running
     running do
       our[:different_running_thread] = Thread.current
@@ -290,16 +302,39 @@ describe NeedRunner do
       end
 
       context "faulty" do
-        let(:faulty) { { faulty_other_job: true } }
+        context "loop" do
+          let(:faulty) { { faulty_other_job: true } }
 
-        before {
-          needy.wait_for :other_job_pile, :size, 3
-        }
+          before {
+            needy.wait_for :other_job_pile, :size, 3
+          }
 
-        it "should log an error on tracking" do
-          expect(needy.receptors[:errors]).to eq ["divided by 0", "can't modify frozen Fixnum"]
+          it "should log an error on tracking" do
+            expect(needy.receptors[:errors]).to eq ["divided by 0", "can't modify frozen Fixnum"]
+          end
         end
 
+        context "dumb" do
+          before {
+            needy.other_dumb_job
+            sleep 0.5
+          }
+
+          it "should log an error on tracking" do
+            expect(needy.receptors[:errors]).to eq ["divided by 0", "divided by 0"]
+          end
+        end
+
+        context "dumb" do
+          before {
+            needy.other_dumb_job :crash
+            sleep 0.5
+          }
+
+          it "should log an error on tracking" do
+            expect(needy.receptors[:errors]).to eq ["divided by 0", "cannot load such file -- doumac"]
+          end
+        end
       end
     end
 
