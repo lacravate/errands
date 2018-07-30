@@ -325,22 +325,19 @@ module Errands
       }.to_sym
     end
 
+    def rescued_loop
+      loop { our["#{my[:name]}_iteration".to_sym] = begin
+        my[:stop] ? break : yield; Time.now
+      rescue => e
+        log_error e, my[:data], my
+      end }
+    end
+
     def rescued_execution
       our["#{my[:name]}_iteration".to_sym] = begin
         yield; Time.now
       rescue => e
         log_error e, my[:data], my
-      rescue Exception => e
-        #~ puts e
-        log_error e, my[:data], my
-        raise e
-      end
-    end
-
-    def rescued_loop(&block)
-      loop do
-        break if my[:stop]
-        rescued_execution &block
       end
     end
 
