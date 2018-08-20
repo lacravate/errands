@@ -332,8 +332,7 @@ describe NeedRunner do
           }
 
           it "should log an error on tracking" do
-            # expect(needy.receptors[:errors]).to eq ["divided by 0", "cannot load such file -- doumac"]
-            expect(needy.receptors[:errors]).to eq ["divided by 0"]
+            expect(needy.receptors[:errors]).to eq ["divided by 0", "cannot load such file -- doumac"]
           end
         end
       end

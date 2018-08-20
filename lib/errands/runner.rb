@@ -201,7 +201,7 @@ module Errands
     end
 
     def starting(started)
-      puts ["Starting #{self.class} with :", our[:config], "workers : #{started}", "\n"].join("\n") unless our[:quiet]
+      log_activity ["Starting #{self.class} in #{$0} (#{$$}), at #{Time.now}, with :", our[:config], "workers : #{started}", "\n"].join("\n")
 
       running thread_name, loop: true, started: started, type: :starter do
         Array(my[:started]).uniq.each { |s| threads[s] ||= send *(respond_to?(s, true) ? [s] : [:working, s]) }
@@ -252,7 +252,7 @@ module Errands
 
     def stopped?
       our[:stopped] = threads.key_sliced(stopped_threads).alive.empty?.tap { |bool|
-        log_activity Time.now, "All activities stopped" if bool
+        log_activity Time.now, "#{self.class} #{name rescue nil} : All activities stopped" if bool
       }
     end
 
@@ -271,7 +271,7 @@ module Errands
         (e = events.shift) ? errands(*e) : sleep(frequency(:main_loop) || 1)
       end
 
-      log_activity Time.now, "Exiting main loop"
+      log_activity Time.now, "#{self.class} #{name rescue nil} : Exiting main loop"
     end
 
     def ready_receptor!(processing)
@@ -325,19 +325,22 @@ module Errands
       }.to_sym
     end
 
-    def rescued_loop
-      loop { our["#{my[:name]}_iteration".to_sym] = begin
-        my[:stop] ? break : yield; Time.now
-      rescue => e
-        log_error e, my[:data], my
-      end }
-    end
-
     def rescued_execution
       our["#{my[:name]}_iteration".to_sym] = begin
         yield; Time.now
       rescue => e
         log_error e, my[:data], my
+      rescue Exception => e
+        #~ puts e
+        log_error e, my[:data], my
+        raise e
+      end
+    end
+
+    def rescued_loop(&block)
+      loop do
+        break if my[:stop]
+        rescued_execution &block
       end
     end
 
@@ -356,6 +359,8 @@ module Errands
     end
 
     def log_activity(*_)
+      return unless our[:quiet]
+
       message = _.map(&:to_s).join(" ")
       # message = activity if message.empty?
       puts message
