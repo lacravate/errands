@@ -68,7 +68,7 @@ module Errands
     end
 
     def startups
-      @startups ||= []
+      @startups ||= [:minimal_startup]
     end
 
     private
@@ -181,8 +181,8 @@ module Errands
 
     attr_accessor :running_mode
 
-    def start(options = startups)
-      our_store! options.merge(threads: Runners.new, receptors: Receptors.new)
+    def start(options = {})
+      our_store! startups.merge(options)
       starter
     end
 
@@ -261,6 +261,10 @@ module Errands
     end
 
     private
+
+    def minimal_startup
+      { threads: Runners.new, receptors: Receptors.new }
+    end
 
     def frequency(name = nil)
       our[:config] && our[:config][:frequencies] && our[:config][:frequencies][name || my[:name]]
