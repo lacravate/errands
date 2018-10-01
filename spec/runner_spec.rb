@@ -125,7 +125,7 @@ end
 
 class OtherExclusiveRunner < OtherRunner
 
-  default_workers :other_job
+  default_workers [:other_job]
 
   startups << :additional_startup
 
