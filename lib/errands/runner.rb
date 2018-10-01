@@ -109,7 +109,7 @@ module Errands
 
       def <<(value)
         return if value.nil?
-        track value, my[:receptor_track]
+        track value, my[:receptor_track] if my
         super.tap { our[:threads][@name] && our[:threads][@name].run }
       end
 
