@@ -315,7 +315,9 @@ module Errands
     end
 
     def exiting(name, force = true)
-      force && Thread.current == our[name] ? errands(:exiting, name) : our[name] && (force || our[name].stop?) && our[name].exit
+      force && Thread.current == our[name] ?
+        errands(:exiting, name) :
+        our[name] && (force || our[name].stop?) && our[name].exit
       wait_for name, :alive?, false
     end
 
@@ -334,10 +336,8 @@ module Errands
         our["#{my[:name]}_iteration".to_sym] = begin
           my[:stop] ? break : yield; Time.now
         rescue => e
-          my[:logged] = Time.now.to_f
           log_error e, my[:data], my
         rescue Exception => e
-          my[:logged] = Time.now.to_f
           log_error e, my[:data], my
           raise e
         end
@@ -362,11 +362,15 @@ module Errands
     end
 
     def log_error(e, data, *_)
-      puts(e) || puts(e.message) || puts(data) || puts(e.backtrace) || puts(_) if our[:verbose]
+      my[:logged] = Time.now.to_f
+      log_activity [ "Data : #{data}", "Error : #{e}, #{e.message}\n#{e.backtrace}",
+        "Context : #{_}" ].join("\n")
+    rescue => blunder
+      puts "Got #{blunder} in the process of logging error #{e}"
     end
 
     def log_activity(*_)
-      return unless our[:quiet]
+      return unless our[:verbose]
 
       message = _.map(&:to_s).join(" ")
       # message = activity if message.empty?
