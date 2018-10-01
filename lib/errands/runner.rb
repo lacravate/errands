@@ -64,7 +64,7 @@ module Errands
     alias_method :noop_run, :run
 
     def started_workers(*_)
-      (@started_workers ||= [:worker]).concat _.map(&:to_sym).flatten
+      (@started_workers ||= [:worker]).concat _.flatten.map(&:to_sym)
     end
 
     def startups
