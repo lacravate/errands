@@ -378,7 +378,7 @@ module Errands
     end
 
     def startups
-      self.class.startups
+      @startups ||= self.class.startups
         .dup
         .tap { |s| s << :startup if respond_to?(:startup, true) }
         .uniq
